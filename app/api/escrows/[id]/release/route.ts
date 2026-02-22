@@ -1,0 +1,81 @@
+import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { releaseEscrow } from "@/lib/escrow-api";
+
+export async function POST(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  const escrow = await prisma.escrow.findUnique({
+    where: { id },
+    include: { listing: { select: { sellerId: true } } },
+  });
+
+  if (!escrow) {
+    return NextResponse.json({ error: "Escrow not found" }, { status: 404 });
+  }
+
+  if (
+    escrow.buyerId !== session.user.id &&
+    escrow.listing.sellerId !== session.user.id
+  ) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  try {
+    const result = await releaseEscrow(escrow.escrowApiId);
+
+    await prisma.escrow.update({
+      where: { id },
+      data: {
+        status: result.status,
+        releaseTxId: result.tx_id,
+      },
+    });
+
+    // Activate next stage if this is a staged payment
+    const nextStage = await prisma.escrow.findFirst({
+      where: {
+        listingId: escrow.listingId,
+        stageIndex: escrow.stageIndex + 1,
+        status: "pending_stage",
+      },
+    });
+
+    if (nextStage) {
+      // Activate the next stage
+      await prisma.escrow.update({
+        where: { id: nextStage.id },
+        data: { status: "awaiting_funding" },
+      });
+    } else {
+      // No more stages — check if all stages for this listing are settled
+      const unsettled = await prisma.escrow.count({
+        where: {
+          listingId: escrow.listingId,
+          status: { notIn: ["released", "refunded", "disputed"] },
+        },
+      });
+
+      if (unsettled === 0) {
+        await prisma.listing.update({
+          where: { id: escrow.listingId },
+          data: { status: "sold" },
+        });
+      }
+    }
+
+    return NextResponse.json(result);
+  } catch (err) {
+    console.error("Release error:", err);
+    return NextResponse.json({ error: "Failed to release escrow" }, { status: 500 });
+  }
+}

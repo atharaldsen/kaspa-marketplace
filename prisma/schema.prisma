@@ -1,0 +1,98 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ─── NextAuth Models ─────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  listings      Listing[]
+  escrows       Escrow[]  @relation("BuyerEscrows")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Marketplace Models ──────────────────────────────────────
+
+model Listing {
+  id            String   @id @default(cuid())
+  sellerId      String
+  seller        User     @relation(fields: [sellerId], references: [id])
+  title         String
+  description   String
+  price         BigInt   // sompi (1 KAS = 100_000_000 sompi)
+  category      String   @default("general")
+  imageData     String?  // base64 data URL
+  escrowPattern String   @default("basic") // basic, timelocked, covenant_multi_path, payment_split
+  lockTimeDaa   Int?     // for timelocked / covenant_multi_path
+  feePercent    Int?     // for payment_split (1-99)
+  stages        String?  // JSON: [{"name":"Design","priceSompi":100000000}]
+  status        String   @default("active") // active, sold, cancelled
+  escrows       Escrow[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Escrow {
+  id             String   @id @default(cuid())
+  listingId      String
+  listing        Listing  @relation(fields: [listingId], references: [id])
+  buyerId        String
+  buyer          User     @relation("BuyerEscrows", fields: [buyerId], references: [id])
+  escrowApiId    String   @unique // UUID from Rust escrow API
+  stageIndex     Int      @default(0)
+  fundingAddress String   // kaspatest: address for buyer to send funds
+  escrowAmount   BigInt   // sompi
+  status         String   @default("awaiting_funding")
+  fundingTxId    String?
+  releaseTxId    String?
+  refundTxId     String?
+  disputeTxId    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
