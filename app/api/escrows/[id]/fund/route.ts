@@ -41,6 +41,30 @@ export async function POST(
     return NextResponse.json(result);
   } catch (err) {
     console.error("Fund error:", err);
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("no mature UTXO") || msg.includes("no UTXO")) {
+      return NextResponse.json(
+        { error: "No payment detected at the escrow address yet. Please send KAS first, then try again." },
+        { status: 400 }
+      );
+    }
+    if (msg.includes("too small")) {
+      // Extract amounts for a user-friendly message
+      const needMatch = msg.match(/need at least (\d+)/);
+      const haveMatch = msg.match(/UTXO amount (\d+)/);
+      const need = needMatch ? (Number(needMatch[1]) / 100_000_000).toFixed(2) : "?";
+      const have = haveMatch ? (Number(haveMatch[1]) / 100_000_000).toFixed(2) : "?";
+      return NextResponse.json(
+        { error: `Not enough funds yet. ${have} KAS received but ${need} KAS is needed. Please send more KAS to the escrow address.` },
+        { status: 400 }
+      );
+    }
+    if (msg.includes("too large")) {
+      return NextResponse.json(
+        { error: "The payment sent is too large for the escrow amount. Please send a single transaction closer to the exact amount needed." },
+        { status: 400 }
+      );
+    }
     return NextResponse.json({ error: "Failed to lock funds" }, { status: 500 });
   }
 }

@@ -50,6 +50,25 @@ export async function POST(
     return NextResponse.json(result);
   } catch (err) {
     console.error("Refund error:", err);
-    return NextResponse.json({ error: "Failed to refund escrow" }, { status: 500 });
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("not locked") || msg.includes("invalid status")) {
+      return NextResponse.json(
+        { error: "This escrow is not in a state that allows refund." },
+        { status: 400 }
+      );
+    }
+    if (msg.includes("timelock") || msg.includes("not expired")) {
+      return NextResponse.json(
+        { error: "The time lock has not expired yet. Refund will be available after the lock period ends." },
+        { status: 400 }
+      );
+    }
+    if (msg.includes("confirmation")) {
+      return NextResponse.json(
+        { error: "Transaction not yet confirmed. Please wait a moment and try again." },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json({ error: "Unable to process refund right now. Please try again." }, { status: 500 });
   }
 }

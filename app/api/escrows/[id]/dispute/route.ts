@@ -18,7 +18,7 @@ export async function POST(
 
   if (!winner || !["buyer", "seller"].includes(winner)) {
     return NextResponse.json(
-      { error: "winner must be 'buyer' or 'seller'" },
+      { error: "Please specify who should receive the funds." },
       { status: 400 }
     );
   }
@@ -53,6 +53,19 @@ export async function POST(
     return NextResponse.json(result);
   } catch (err) {
     console.error("Dispute error:", err);
-    return NextResponse.json({ error: "Failed to dispute escrow" }, { status: 500 });
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("not locked") || msg.includes("invalid status")) {
+      return NextResponse.json(
+        { error: "This escrow is not in a state that allows disputes." },
+        { status: 400 }
+      );
+    }
+    if (msg.includes("arbitrator") || msg.includes("not supported")) {
+      return NextResponse.json(
+        { error: "Dispute resolution is not available for this escrow type." },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json({ error: "Unable to open dispute right now. Please try again." }, { status: 500 });
   }
 }

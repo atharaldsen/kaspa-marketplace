@@ -29,7 +29,7 @@ export default function DashboardPage() {
   useEffect(() => {
     fetch("/api/escrows")
       .then((r) => {
-        if (!r.ok) throw new Error("Failed to load escrows");
+        if (!r.ok) throw new Error("Unable to load your escrows. Please refresh the page.");
         return r.json();
       })
       .then(setEscrows)

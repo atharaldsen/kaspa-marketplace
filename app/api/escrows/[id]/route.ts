@@ -63,7 +63,8 @@ export async function GET(
         },
       });
     }
-  } catch {
+  } catch (err) {
+    console.error("Failed to fetch live escrow status:", err);
     // Rust API may be down — return DB state
   }
 

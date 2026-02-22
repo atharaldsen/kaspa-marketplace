@@ -19,13 +19,13 @@ export function BuyButton({ listingId }: { listingId: string }) {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Failed to create escrow");
+        throw new Error(data.error || "Unable to start purchase. Please try again.");
       }
 
       const escrow = await res.json();
       router.push(`/escrow/${escrow.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }

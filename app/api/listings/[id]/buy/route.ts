@@ -144,6 +144,6 @@ export async function POST(
 
     // Don't leak internal error details
     console.error("Buy route error:", err);
-    return NextResponse.json({ error: "Failed to create escrow" }, { status: 500 });
+    return NextResponse.json({ error: "Unable to set up escrow. Please try again." }, { status: 500 });
   }
 }

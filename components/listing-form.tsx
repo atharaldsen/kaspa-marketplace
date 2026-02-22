@@ -17,24 +17,24 @@ const patterns = [
   {
     value: "basic",
     label: "Basic Escrow",
-    description: "2-of-2 multisig. Both buyer and seller must agree to release.",
+    description: "Both buyer and seller must approve before funds are transferred.",
   },
   {
     value: "timelocked",
     label: "Time-Locked",
-    description: "Auto-refund after timeout if seller doesn't deliver.",
+    description: "Buyer gets an automatic refund if the seller doesn't deliver in time.",
     hasLockTime: true,
   },
   {
     value: "covenant_multi_path",
     label: "Multi-Path Covenant",
-    description: "Release, dispute with arbitrator, or auto-refund on timeout.",
+    description: "Full protection — approve payment, open a dispute, or get a refund if time runs out.",
     hasLockTime: true,
   },
   {
     value: "payment_split",
     label: "Payment Split",
-    description: "Covenant enforces seller + platform fee split on release.",
+    description: "Payment is automatically split between seller and a platform fee when approved.",
     hasFeePercent: true,
   },
 ];
@@ -116,13 +116,13 @@ export function ListingForm() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Failed to create listing");
+        throw new Error(data.error || "Unable to create listing. Please try again.");
       }
 
       const listing = await res.json();
       router.push(`/listings/${listing.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }

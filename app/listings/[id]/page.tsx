@@ -13,12 +13,12 @@ const patternLabels: Record<string, string> = {
 };
 
 const patternDescriptions: Record<string, string> = {
-  basic: "2-of-2 multisig. Both buyer and seller must agree to release.",
-  timelocked: "Auto-refund after timeout if seller doesn't deliver.",
+  basic: "Both buyer and seller must approve before funds are transferred.",
+  timelocked: "Buyer gets an automatic refund if the seller doesn't deliver in time.",
   covenant_multi_path:
-    "Release, dispute with arbitrator, or auto-refund on timeout.",
+    "Full protection — approve payment, open a dispute, or get a refund if time runs out.",
   payment_split:
-    "Covenant enforces seller + platform fee split on release.",
+    "Payment is automatically split between seller and a platform fee when approved.",
 };
 
 export default async function ListingDetailPage({

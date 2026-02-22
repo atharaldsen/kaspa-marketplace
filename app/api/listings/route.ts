@@ -39,7 +39,7 @@ export async function POST(req: Request) {
   // Required fields
   if (!title || !description || !priceKas) {
     return NextResponse.json(
-      { error: "title, description, and priceKas are required" },
+      { error: "Please fill in the title, description, and price." },
       { status: 400 }
     );
   }
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
   const priceFloat = parseFloat(priceKas);
   if (isNaN(priceFloat) || priceFloat <= 0 || priceFloat > MAX_PRICE_KAS) {
     return NextResponse.json(
-      { error: "priceKas must be a positive number within range" },
+      { error: `Price must be between 0.01 and ${MAX_PRICE_KAS.toLocaleString()} KAS.` },
       { status: 400 }
     );
   }

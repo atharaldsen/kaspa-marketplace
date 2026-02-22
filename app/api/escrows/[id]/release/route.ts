@@ -76,6 +76,19 @@ export async function POST(
     return NextResponse.json(result);
   } catch (err) {
     console.error("Release error:", err);
-    return NextResponse.json({ error: "Failed to release escrow" }, { status: 500 });
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("not locked") || msg.includes("invalid status")) {
+      return NextResponse.json(
+        { error: "This escrow is not in a state that allows release. It may have already been settled." },
+        { status: 400 }
+      );
+    }
+    if (msg.includes("confirmation")) {
+      return NextResponse.json(
+        { error: "Transaction not yet confirmed. Please wait a moment and try again." },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json({ error: "Unable to release payment right now. Please try again." }, { status: 500 });
   }
 }
