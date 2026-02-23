@@ -39,6 +39,15 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // Role restriction: each party can only dispute in their own favor
+  const userRole = escrow.buyerId === session.user.id ? "buyer" : "seller";
+  if (winner !== userRole) {
+    return NextResponse.json(
+      { error: "You can only request a dispute in your own favor." },
+      { status: 403 }
+    );
+  }
+
   try {
     const result = await disputeEscrow(escrow.escrowApiId, winner);
 

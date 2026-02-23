@@ -1,7 +1,7 @@
 const statusConfig: Record<string, { label: string; color: string }> = {
   awaiting_funding: { label: "Awaiting Funding", color: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" },
-  funded: { label: "Payment Received", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
-  funding_detected: { label: "Funding Detected", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
+  funded: { label: "Auto-locking...", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
+  funding_detected: { label: "Auto-locking...", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
   locking: { label: "Locking...", color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" },
   locked: { label: "Locked", color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
   releasing: { label: "Releasing...", color: "bg-kaspa-100 text-kaspa-700 dark:bg-kaspa-900/30 dark:text-kaspa-400" },

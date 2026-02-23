@@ -29,6 +29,10 @@ export async function GET() {
     escrows.map((e) => ({
       ...e,
       escrowAmount: e.escrowAmount.toString(),
+      roles: [
+        ...(e.buyerId === session.user!.id ? ["buyer" as const] : []),
+        ...(e.listing.sellerId === session.user!.id ? ["seller" as const] : []),
+      ],
       listing: {
         ...e.listing,
         price: e.listing.price.toString(),

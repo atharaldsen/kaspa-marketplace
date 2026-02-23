@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { getEscrowStatus } from "@/lib/escrow-api";
+import { getEscrowStatus, fundEscrow, compoundEscrow } from "@/lib/escrow-api";
 
 // GET /api/escrows/[id] — get escrow detail with live status from Rust API
 export async function GET(
@@ -49,6 +49,53 @@ export async function GET(
   let liveStatus = null;
   try {
     liveStatus = await getEscrowStatus(escrow.escrowApiId);
+
+    // Auto-lock: when payment is detected, automatically fund the escrow
+    if (liveStatus.status === "funded" && !escrow.fundingTxId) {
+      try {
+        const fundResult = await fundEscrow(escrow.escrowApiId);
+        liveStatus = {
+          ...liveStatus,
+          status: fundResult.status,
+          funding_tx_id: fundResult.tx_id,
+        };
+        await prisma.escrow.update({
+          where: { id },
+          data: {
+            status: fundResult.status,
+            fundingTxId: fundResult.tx_id,
+          },
+        });
+      } catch (fundErr) {
+        const msg = fundErr instanceof Error ? fundErr.message : "";
+        // If UTXO too small, try compounding first then retry
+        if (msg.includes("too small")) {
+          try {
+            await compoundEscrow(escrow.escrowApiId);
+            // Retry fund after compounding
+            const retryResult = await fundEscrow(escrow.escrowApiId);
+            liveStatus = {
+              ...liveStatus,
+              status: retryResult.status,
+              funding_tx_id: retryResult.tx_id,
+            };
+            await prisma.escrow.update({
+              where: { id },
+              data: {
+                status: retryResult.status,
+                fundingTxId: retryResult.tx_id,
+              },
+            });
+          } catch (compoundErr) {
+            console.error("Auto-compound+fund failed:", compoundErr);
+            // Fall through — return "funded" status so frontend shows progress
+          }
+        } else {
+          console.error("Auto-fund failed:", fundErr);
+          // Fall through — return "funded" status
+        }
+      }
+    }
 
     // Sync status back to DB if changed
     if (liveStatus.status !== escrow.status) {

@@ -42,19 +42,17 @@ interface EscrowDetail {
   }[] | null;
 }
 
-// Which wizard step we're on
+// Which wizard step we're on (4 steps: Send Payment → Locking → Secured → Complete)
 function getStep(status: string): number {
-  if (status === "awaiting_funding") return 0;
-  if (status === "funded" || status === "funding_detected") return 1;
-  if (status === "locking") return 2;
-  if (status === "locked") return 3;
-  // settled states
-  if (["released", "refunded", "disputed", "escaped"].includes(status)) return 4;
-  return 0; // unknown — default to start
+  if (status === "awaiting_funding" || status === "funded" || status === "funding_detected") return 0;
+  if (status === "locking") return 1;
+  if (status === "locked") return 2;
+  if (["released", "refunded", "disputed", "escaped"].includes(status)) return 3;
+  return 0;
 }
 
 const SETTLED_STATUSES = ["released", "refunded", "disputed", "escaped"];
-const STEPS = ["Send Payment", "Payment Received", "Locking", "Secured", "Complete"];
+const STEPS = ["Send Payment", "Locking", "Secured", "Complete"];
 
 export default function EscrowDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -63,6 +61,7 @@ export default function EscrowDetailPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const fetchEscrow = useCallback(async () => {
@@ -72,8 +71,13 @@ export default function EscrowDetailPage() {
         const data = await res.json();
         throw new Error(data.error || "Unable to load escrow details. Please refresh the page.");
       }
-      setEscrow(await res.json());
+      const data = await res.json();
+      setEscrow(data);
       setError(null);
+      // Clear pending action once status has moved past "locked"
+      if (data.status !== "locked") {
+        setPendingAction(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
@@ -83,7 +87,8 @@ export default function EscrowDetailPage() {
 
   useEffect(() => {
     fetchEscrow();
-    const interval = setInterval(fetchEscrow, 5000);
+    // Poll faster (2s) while escrow is active, slower (10s) once settled
+    const interval = setInterval(fetchEscrow, escrow && SETTLED_STATUSES.includes(escrow.status) ? 10000 : 2000);
     return () => clearInterval(interval);
   }, [fetchEscrow]);
 
@@ -100,6 +105,8 @@ export default function EscrowDetailPage() {
         const data = await res.json();
         throw new Error(data.error || `${action} failed`);
       }
+      // Show transition state until the next poll confirms
+      setPendingAction(action);
       fetchEscrow();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Action failed");
@@ -254,7 +261,9 @@ export default function EscrowDetailPage() {
 
               <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-kaspa-500 border-t-transparent" />
-                Waiting for payment...
+                {escrow.status === "funded" || escrow.status === "funding_detected"
+                  ? "Payment detected — locking automatically..."
+                  : "Waiting for payment..."}
               </div>
             </>
           ) : (
@@ -269,48 +278,17 @@ export default function EscrowDetailPage() {
               </p>
               <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-kaspa-500 border-t-transparent" />
-                Waiting for payment...
+                {escrow.status === "funded" || escrow.status === "funding_detected"
+                  ? "Payment detected — locking automatically..."
+                  : "Waiting for payment..."}
               </div>
             </>
           )}
         </div>
       )}
 
-      {/* ── Step 1: Payment Received — Lock Funds ── */}
+      {/* ── Step 1: Locking ── */}
       {step === 1 && (
-        <div className="rounded-lg border-2 border-green-200 bg-green-50/50 p-6 dark:border-green-800 dark:bg-green-950/30">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500 text-white">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                Payment received
-              </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {escrow.utxoAmount != null
-                  ? `${(escrow.utxoAmount / 100_000_000).toFixed(2)} KAS detected at the escrow address.`
-                  : "Funds detected at the escrow address."}
-              </p>
-            </div>
-          </div>
-          <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-            Now lock the funds into escrow so they&apos;re protected until the transaction is complete.
-          </p>
-          <button
-            onClick={() => doAction("fund")}
-            disabled={actionLoading !== null}
-            className="mt-5 w-full rounded-lg bg-kaspa-500 px-6 py-3 text-base font-semibold text-white shadow-sm hover:bg-kaspa-600 disabled:opacity-50"
-          >
-            {actionLoading === "fund" ? "Locking funds..." : "Lock funds in escrow"}
-          </button>
-        </div>
-      )}
-
-      {/* ── Step 2: Locking ── */}
-      {step === 2 && (
         <div className="rounded-lg border border-yellow-200 bg-yellow-50/50 p-6 text-center dark:border-yellow-800 dark:bg-yellow-950/30">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-kaspa-500 border-t-transparent" />
           <h2 className="mt-4 text-lg font-bold text-gray-900 dark:text-white">
@@ -323,8 +301,8 @@ export default function EscrowDetailPage() {
         </div>
       )}
 
-      {/* ── Step 3: Secured / Locked ── */}
-      {step === 3 && (
+      {/* ── Step 2: Secured / Locked ── */}
+      {step === 2 && !pendingAction && (
         <div className="space-y-4">
           <div className="rounded-lg border-2 border-green-200 bg-green-50/50 p-6 dark:border-green-800 dark:bg-green-950/30">
             <div className="flex items-center gap-3">
@@ -380,11 +358,15 @@ export default function EscrowDetailPage() {
               )}
               {canDispute && (
                 <button
-                  onClick={() => doAction("dispute", { winner: escrow.role === "buyer" ? "buyer" : "seller" })}
+                  onClick={() => doAction("dispute", { winner: escrow.role })}
                   disabled={actionLoading !== null}
                   className="flex-1 rounded-lg border border-red-300 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
                 >
-                  {actionLoading === "dispute" ? "Disputing..." : "Open Dispute"}
+                  {actionLoading === "dispute"
+                    ? "Disputing..."
+                    : escrow.role === "buyer"
+                      ? "Dispute \u2014 Request funds back"
+                      : "Dispute \u2014 Request payment"}
                 </button>
               )}
             </div>
@@ -411,7 +393,28 @@ export default function EscrowDetailPage() {
         </div>
       )}
 
-      {/* ── Step 4: Complete ── */}
+      {/* ── Transition: Releasing / Refunding / Disputing ── */}
+      {pendingAction && !isSettled && (
+        <div className="rounded-lg border border-kaspa-200 bg-kaspa-50/50 p-6 text-center dark:border-kaspa-800 dark:bg-kaspa-950/30">
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-kaspa-500 border-t-transparent" />
+          <h2 className="mt-4 text-lg font-bold text-gray-900 dark:text-white">
+            {pendingAction === "release"
+              ? "Releasing payment..."
+              : pendingAction === "refund"
+                ? "Processing refund..."
+                : "Processing dispute..."}
+          </h2>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+            {pendingAction === "release"
+              ? "Sending funds to the seller. This usually takes a few seconds."
+              : pendingAction === "refund"
+                ? "Returning funds to the buyer. This usually takes a few seconds."
+                : "Resolving the dispute. This usually takes a few seconds."}
+          </p>
+        </div>
+      )}
+
+      {/* ── Step 3: Complete ── */}
       {isSettled && (
         <div
           className={`rounded-lg border-2 p-6 text-center ${

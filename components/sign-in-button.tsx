@@ -1,6 +1,35 @@
 "use client";
 
+import { useState } from "react";
 import { signIn, signOut, useSession } from "next-auth/react";
+
+function UserAvatar({ src, name }: { src?: string | null; name?: string | null }) {
+  const [imgError, setImgError] = useState(false);
+  const initials = (name || "?")
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  if (src && !imgError) {
+    return (
+      <img
+        src={src}
+        alt=""
+        className="h-8 w-8 rounded-full"
+        referrerPolicy="no-referrer"
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
+  return (
+    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-kaspa-500 text-xs font-bold text-white">
+      {initials}
+    </div>
+  );
+}
 
 export function SignInButton() {
   const { data: session, status } = useSession();
@@ -12,13 +41,7 @@ export function SignInButton() {
   if (session?.user) {
     return (
       <div className="flex items-center gap-3">
-        {session.user.image && (
-          <img
-            src={session.user.image}
-            alt=""
-            className="h-8 w-8 rounded-full"
-          />
-        )}
+        <UserAvatar src={session.user.image} name={session.user.name} />
         <span className="text-sm text-gray-700 dark:text-gray-300">
           {session.user.name}
         </span>

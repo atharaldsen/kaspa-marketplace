@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { fundEscrow } from "@/lib/escrow-api";
+import { fundEscrow, compoundEscrow } from "@/lib/escrow-api";
 
 export async function POST(
   _req: Request,
@@ -49,15 +49,26 @@ export async function POST(
       );
     }
     if (msg.includes("too small")) {
-      // Extract amounts for a user-friendly message
-      const needMatch = msg.match(/need at least (\d+)/);
-      const haveMatch = msg.match(/UTXO amount (\d+)/);
-      const need = needMatch ? (Number(needMatch[1]) / 100_000_000).toFixed(2) : "?";
-      const have = haveMatch ? (Number(haveMatch[1]) / 100_000_000).toFixed(2) : "?";
-      return NextResponse.json(
-        { error: `Not enough funds yet. ${have} KAS received but ${need} KAS is needed. Please send more KAS to the escrow address.` },
-        { status: 400 }
-      );
+      // Try compounding fragmented UTXOs, then retry fund
+      try {
+        await compoundEscrow(escrow.escrowApiId);
+        const retryResult = await fundEscrow(escrow.escrowApiId);
+        await prisma.escrow.update({
+          where: { id },
+          data: { status: retryResult.status, fundingTxId: retryResult.tx_id },
+        });
+        return NextResponse.json(retryResult);
+      } catch {
+        // Compound didn't help — show original error
+        const needMatch = msg.match(/need at least (\d+)/);
+        const haveMatch = msg.match(/UTXO amount (\d+)/);
+        const need = needMatch ? (Number(needMatch[1]) / 100_000_000).toFixed(2) : "?";
+        const have = haveMatch ? (Number(haveMatch[1]) / 100_000_000).toFixed(2) : "?";
+        return NextResponse.json(
+          { error: `Not enough funds yet. ${have} KAS received but ${need} KAS is needed. Please send more KAS to the escrow address.` },
+          { status: 400 }
+        );
+      }
     }
     if (msg.includes("too large")) {
       return NextResponse.json(

@@ -53,6 +53,11 @@ export interface TxResponse {
   winner?: string;
 }
 
+export interface CompoundResponse {
+  tx_ids: string[];
+  status: string;
+}
+
 export interface ErrorResponse {
   error: string;
 }
@@ -100,6 +105,13 @@ export async function refundEscrow(id: string, fee = 5000): Promise<TxResponse> 
   return apiCall(`/escrow/${id}/refund`, {
     method: "POST",
     body: JSON.stringify({ fee }),
+  });
+}
+
+export async function compoundEscrow(id: string, maxInputs?: number): Promise<CompoundResponse> {
+  return apiCall(`/escrow/${id}/compound`, {
+    method: "POST",
+    body: JSON.stringify({ max_inputs: maxInputs }),
   });
 }
 
