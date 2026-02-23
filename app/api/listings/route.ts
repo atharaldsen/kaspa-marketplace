@@ -99,6 +99,34 @@ export async function POST(req: Request) {
   // Convert KAS to sompi (1 KAS = 100_000_000 sompi)
   const priceSompi = BigInt(Math.round(priceFloat * 100_000_000));
 
+  // Validate stage prices sum to listing price
+  if (stages && Array.isArray(stages) && stages.length > 1) {
+    try {
+      let stageTotal = BigInt(0);
+      for (const stage of stages) {
+        const sp = BigInt(stage.priceSompi || "0");
+        if (sp <= BigInt(0)) {
+          return NextResponse.json(
+            { error: "Each stage must have a positive price." },
+            { status: 400 }
+          );
+        }
+        stageTotal += sp;
+      }
+      if (stageTotal !== priceSompi) {
+        return NextResponse.json(
+          { error: "Stage prices must add up to the total listing price." },
+          { status: 400 }
+        );
+      }
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid stage price format." },
+        { status: 400 }
+      );
+    }
+  }
+
   const listing = await prisma.listing.create({
     data: {
       sellerId: session.user.id,

@@ -7,6 +7,14 @@ import { MilestoneTracker } from "@/components/milestone-tracker";
 import { KasAmount } from "@/components/kas-amount";
 import Link from "next/link";
 
+// DAA blocks ≈ 1 per second on Kaspa
+function formatDaaRemaining(blocks: number): string {
+  if (blocks < 60) return `${blocks} seconds`;
+  if (blocks < 3600) return `${Math.round(blocks / 60)} minutes`;
+  if (blocks < 86400) return `${(blocks / 3600).toFixed(1)} hours`;
+  return `${(blocks / 86400).toFixed(1)} days`;
+}
+
 interface EscrowDetail {
   id: string;
   escrowApiId: string;
@@ -21,6 +29,7 @@ interface EscrowDetail {
   utxoAmount?: number | null;
   currentDaa?: number | null;
   expiresAtDaa?: number | null;
+  autoLockError?: string;
   fundingConfirmed: boolean;
   settlementConfirmed: boolean;
   listing: {
@@ -117,7 +126,9 @@ export default function EscrowDetailPage() {
 
   function copyAddress() {
     if (!escrow) return;
-    navigator.clipboard.writeText(escrow.fundingAddress);
+    navigator.clipboard.writeText(escrow.fundingAddress).catch(() => {
+      // Clipboard API may fail in some browsers — address is still visible in the code block
+    });
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -259,12 +270,18 @@ export default function EscrowDetailPage() {
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-kaspa-500 border-t-transparent" />
-                {escrow.status === "funded" || escrow.status === "funding_detected"
-                  ? "Payment detected — locking automatically..."
-                  : "Waiting for payment..."}
-              </div>
+              {escrow.autoLockError ? (
+                <div className="mt-4 rounded-md bg-orange-50 p-3 text-sm text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                  {escrow.autoLockError}
+                </div>
+              ) : (
+                <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-kaspa-500 border-t-transparent" />
+                  {escrow.status === "funded" || escrow.status === "funding_detected"
+                    ? "Payment detected — locking automatically..."
+                    : "Waiting for payment..."}
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -276,12 +293,18 @@ export default function EscrowDetailPage() {
                 <KasAmount sompi={escrow.escrowAmount} className="font-semibold" />{" "}
                 to the escrow address. This page will update automatically.
               </p>
-              <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-kaspa-500 border-t-transparent" />
-                {escrow.status === "funded" || escrow.status === "funding_detected"
-                  ? "Payment detected — locking automatically..."
-                  : "Waiting for payment..."}
-              </div>
+              {escrow.autoLockError ? (
+                <div className="mt-4 rounded-md bg-orange-50 p-3 text-sm text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                  {escrow.autoLockError}
+                </div>
+              ) : (
+                <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-kaspa-500 border-t-transparent" />
+                  {escrow.status === "funded" || escrow.status === "funding_detected"
+                    ? "Payment detected — locking automatically..."
+                    : "Waiting for payment..."}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -381,11 +404,10 @@ export default function EscrowDetailPage() {
                 </span>
               ) : (
                 <span className="text-gray-500">
-                  Time lock expires in{" "}
+                  Time lock expires in approximately{" "}
                   <span className="font-semibold">
-                    {(escrow.expiresAtDaa - escrow.currentDaa).toLocaleString()}
-                  </span>{" "}
-                  DAA blocks.
+                    {formatDaaRemaining(escrow.expiresAtDaa - escrow.currentDaa)}
+                  </span>.
                 </span>
               )}
             </div>

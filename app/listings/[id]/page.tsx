@@ -5,6 +5,13 @@ import { KasAmount } from "@/components/kas-amount";
 import { BuyButton } from "@/components/buy-button";
 import Link from "next/link";
 
+function formatLockTime(daaBlocks: number): string {
+  if (daaBlocks < 60) return `${daaBlocks} seconds`;
+  if (daaBlocks < 3600) return `${Math.round(daaBlocks / 60)} minutes`;
+  if (daaBlocks < 86400) return `${(daaBlocks / 3600).toFixed(1)} hours`;
+  return `${(daaBlocks / 86400).toFixed(1)} days`;
+}
+
 const patternLabels: Record<string, string> = {
   basic: "Basic Escrow",
   timelocked: "Time-Locked",
@@ -119,7 +126,7 @@ export default async function ListingDetailPage({
             </p>
             {listing.lockTimeDaa && (
               <p className="mt-1 text-xs text-gray-500">
-                Lock time: {listing.lockTimeDaa} DAA score
+                Auto-refund if not delivered within ~{formatLockTime(listing.lockTimeDaa)}
               </p>
             )}
             {listing.feePercent && (
@@ -183,7 +190,15 @@ export default async function ListingDetailPage({
                 This listing is no longer active.
               </p>
             ) : (
-              <BuyButton listingId={listing.id} />
+              <BuyButton
+                listingId={listing.id}
+                title={listing.title}
+                price={listing.price.toString()}
+                escrowPattern={listing.escrowPattern}
+                stages={stages}
+                lockTimeDaa={listing.lockTimeDaa}
+                feePercent={listing.feePercent}
+              />
             )}
           </div>
         </div>

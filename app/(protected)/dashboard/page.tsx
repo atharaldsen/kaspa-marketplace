@@ -10,6 +10,7 @@ interface EscrowSummary {
   status: string;
   escrowAmount: string;
   stageIndex: number;
+  totalStages: number;
   createdAt: string;
   roles: ("buyer" | "seller")[];
   listing: {
@@ -162,7 +163,9 @@ function EscrowRow({ escrow }: { escrow: EscrowSummary }) {
           </div>
           <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
             <span>{escrow.listing.escrowPattern}</span>
-            <span>Stage {escrow.stageIndex + 1}</span>
+            {escrow.totalStages > 1 && (
+              <span>Stage {escrow.stageIndex + 1} of {escrow.totalStages}</span>
+            )}
             <span>{new Date(escrow.createdAt).toLocaleDateString()}</span>
           </div>
         </div>

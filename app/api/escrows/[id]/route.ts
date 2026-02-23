@@ -47,6 +47,7 @@ export async function GET(
 
   // Fetch live status from Rust API
   let liveStatus = null;
+  let autoLockError: string | null = null;
   try {
     liveStatus = await getEscrowStatus(escrow.escrowApiId);
 
@@ -72,7 +73,6 @@ export async function GET(
         if (msg.includes("too small")) {
           try {
             await compoundEscrow(escrow.escrowApiId);
-            // Retry fund after compounding
             const retryResult = await fundEscrow(escrow.escrowApiId);
             liveStatus = {
               ...liveStatus,
@@ -86,13 +86,14 @@ export async function GET(
                 fundingTxId: retryResult.tx_id,
               },
             });
-          } catch (compoundErr) {
-            console.error("Auto-compound+fund failed:", compoundErr);
-            // Fall through — return "funded" status so frontend shows progress
+          } catch {
+            autoLockError = "Payment received but the amount may not be enough. Please send more KAS to the escrow address.";
           }
+        } else if (msg.includes("too large")) {
+          autoLockError = "The payment is more than 10% over the escrow amount. Please send the correct amount.";
         } else {
           console.error("Auto-fund failed:", fundErr);
-          // Fall through — return "funded" status
+          // Transient error — next poll will retry
         }
       }
     }
@@ -145,6 +146,7 @@ export async function GET(
     utxoAmount: liveStatus?.utxo_amount,
     currentDaa: liveStatus?.current_daa,
     expiresAtDaa: liveStatus?.expires_at_daa,
+    autoLockError: autoLockError ?? undefined,
     fundingConfirmed: liveStatus?.funding_confirmed ?? false,
     settlementConfirmed: liveStatus?.settlement_confirmed ?? false,
     listing: {

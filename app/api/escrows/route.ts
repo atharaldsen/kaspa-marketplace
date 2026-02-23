@@ -25,10 +25,17 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
 
+  // Compute total stages per listing from fetched escrows
+  const stageCountMap: Record<string, number> = {};
+  for (const e of escrows) {
+    stageCountMap[e.listingId] = (stageCountMap[e.listingId] || 0) + 1;
+  }
+
   return NextResponse.json(
     escrows.map((e) => ({
       ...e,
       escrowAmount: e.escrowAmount.toString(),
+      totalStages: stageCountMap[e.listingId] || 1,
       roles: [
         ...(e.buyerId === session.user!.id ? ["buyer" as const] : []),
         ...(e.listing.sellerId === session.user!.id ? ["seller" as const] : []),

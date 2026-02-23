@@ -5,7 +5,7 @@ export function KasAmount({ sompi, className }: { sompi: string; className?: str
     const kas = Number(BigInt(sompi)) / 100_000_000;
     formatted = kas % 1 === 0 ? kas.toFixed(0) : kas.toFixed(2);
   } catch {
-    formatted = "?";
+    formatted = "—";
   }
   return (
     <span className={className}>

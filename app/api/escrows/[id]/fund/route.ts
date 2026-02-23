@@ -59,23 +59,32 @@ export async function POST(
         });
         return NextResponse.json(retryResult);
       } catch {
-        // Compound didn't help — show original error
+        // Compound didn't help — build user-friendly message from regex
         const needMatch = msg.match(/need at least (\d+)/);
         const haveMatch = msg.match(/UTXO amount (\d+)/);
-        const need = needMatch ? (Number(needMatch[1]) / 100_000_000).toFixed(2) : "?";
-        const have = haveMatch ? (Number(haveMatch[1]) / 100_000_000).toFixed(2) : "?";
+        if (needMatch && haveMatch) {
+          const need = (Number(needMatch[1]) / 100_000_000).toFixed(2);
+          const have = (Number(haveMatch[1]) / 100_000_000).toFixed(2);
+          return NextResponse.json(
+            { error: `Not enough funds yet. ${have} KAS received but ${need} KAS is needed. Please send more KAS to the escrow address.` },
+            { status: 400 }
+          );
+        }
         return NextResponse.json(
-          { error: `Not enough funds yet. ${have} KAS received but ${need} KAS is needed. Please send more KAS to the escrow address.` },
+          { error: "The payment received is not enough to cover the escrow amount. Please send more KAS to the escrow address." },
           { status: 400 }
         );
       }
     }
     if (msg.includes("too large")) {
       return NextResponse.json(
-        { error: "The payment sent is too large for the escrow amount. Please send a single transaction closer to the exact amount needed." },
+        { error: "The payment exceeds the escrow amount by more than 10%. Please send a single transaction closer to the exact amount." },
         { status: 400 }
       );
     }
-    return NextResponse.json({ error: "Failed to lock funds" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Something went wrong while locking your funds. Please wait a moment and try again." },
+      { status: 500 }
+    );
   }
 }

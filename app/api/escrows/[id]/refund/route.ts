@@ -41,11 +41,19 @@ export async function POST(
       },
     });
 
-    // Re-activate listing
-    await prisma.listing.update({
-      where: { id: escrow.listingId },
-      data: { status: "active" },
+    // Re-activate listing only if all escrows for it are now settled
+    const unsettled = await prisma.escrow.count({
+      where: {
+        listingId: escrow.listingId,
+        status: { notIn: ["released", "refunded", "disputed"] },
+      },
     });
+    if (unsettled === 0) {
+      await prisma.listing.update({
+        where: { id: escrow.listingId },
+        data: { status: "active" },
+      });
+    }
 
     return NextResponse.json(result);
   } catch (err) {

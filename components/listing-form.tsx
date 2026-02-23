@@ -64,6 +64,15 @@ export function ListingForm() {
 
   const selectedPattern = patterns.find((p) => p.value === escrowPattern);
 
+  // Stage sum validation
+  const stageSumKas = useStages
+    ? stages.reduce((sum, s) => sum + (parseFloat(s.priceKas) || 0), 0)
+    : 0;
+  const listingPriceKas = parseFloat(priceKas) || 0;
+  const stageSumMismatch =
+    useStages && stages.length > 1 && listingPriceKas > 0 &&
+    Math.abs(stageSumKas - listingPriceKas) > 0.005;
+
   function addStage() {
     if (stages.length >= 4) return;
     setStages([...stages, { name: `Stage ${stages.length + 1}`, priceKas: "" }]);
@@ -231,14 +240,15 @@ export function ListingForm() {
       {selectedPattern?.hasLockTime && (
         <div>
           <label className="block text-sm font-medium">
-            Lock Time (DAA score for timeout refund)
+            Refund Timeout (seconds)
           </label>
+          <p className="mt-0.5 text-xs text-gray-500">How long the buyer waits before they can claim an automatic refund.</p>
           <input
             type="number"
             min="1"
             value={lockTimeDaa}
             onChange={(e) => setLockTimeDaa(e.target.value)}
-            placeholder="e.g. 1000 (roughly 1000 seconds)"
+            placeholder="e.g. 3600 (1 hour)"
             className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-kaspa-500 focus:outline-none focus:ring-1 focus:ring-kaspa-500 dark:border-gray-700 dark:bg-gray-900"
           />
         </div>
@@ -312,6 +322,12 @@ export function ListingForm() {
                 + Add stage
               </button>
             )}
+            {stageSumMismatch && (
+              <p className="text-sm text-red-600 dark:text-red-400">
+                Stage prices sum to {stageSumKas.toFixed(2)} KAS but the listing price is{" "}
+                {listingPriceKas.toFixed(2)} KAS. They must match.
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -319,7 +335,7 @@ export function ListingForm() {
       {/* Submit */}
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || stageSumMismatch}
         className="w-full rounded-md bg-kaspa-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-kaspa-600 disabled:opacity-50"
       >
         {loading ? "Creating..." : "Create Listing"}
