@@ -30,6 +30,14 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // Only the buyer can release funds to the seller
+  if (escrow.buyerId !== session.user.id) {
+    return NextResponse.json(
+      { error: "Only the buyer can release funds." },
+      { status: 403 }
+    );
+  }
+
   try {
     const result = await releaseEscrow(escrow.escrowApiId);
 

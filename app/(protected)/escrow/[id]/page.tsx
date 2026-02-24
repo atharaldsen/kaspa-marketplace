@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { EscrowStatusBadge } from "@/components/escrow-status-badge";
 import { MilestoneTracker } from "@/components/milestone-tracker";
@@ -73,6 +73,8 @@ export default function EscrowDetailPage() {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const statusRef = useRef<string | null>(null);
+
   const fetchEscrow = useCallback(async () => {
     try {
       const res = await fetch(`/api/escrows/${id}`);
@@ -82,6 +84,7 @@ export default function EscrowDetailPage() {
       }
       const data = await res.json();
       setEscrow(data);
+      statusRef.current = data.status;
       setError(null);
       // Clear pending action once status has moved past "locked"
       if (data.status !== "locked") {
@@ -96,8 +99,11 @@ export default function EscrowDetailPage() {
 
   useEffect(() => {
     fetchEscrow();
-    // Poll faster (2s) while escrow is active, slower (10s) once settled
-    const interval = setInterval(fetchEscrow, escrow && SETTLED_STATUSES.includes(escrow.status) ? 10000 : 2000);
+    const interval = setInterval(() => {
+      // Stop polling once settled — nothing left to update
+      if (statusRef.current && SETTLED_STATUSES.includes(statusRef.current)) return;
+      fetchEscrow();
+    }, 2000);
     return () => clearInterval(interval);
   }, [fetchEscrow]);
 
@@ -356,16 +362,18 @@ export default function EscrowDetailPage() {
             )}
           </div>
 
-          {/* Primary action: Release */}
-          <button
-            onClick={() => doAction("release")}
-            disabled={actionLoading !== null}
-            className="w-full rounded-lg bg-kaspa-500 px-6 py-3 text-base font-semibold text-white shadow-sm hover:bg-kaspa-600 disabled:opacity-50"
-          >
-            {actionLoading === "release"
-              ? "Releasing payment..."
-              : "Approve \u2014 Release payment to seller"}
-          </button>
+          {/* Primary action: Release (buyer only) */}
+          {escrow.role === "buyer" && (
+            <button
+              onClick={() => doAction("release")}
+              disabled={actionLoading !== null}
+              className="w-full rounded-lg bg-kaspa-500 px-6 py-3 text-base font-semibold text-white shadow-sm hover:bg-kaspa-600 disabled:opacity-50"
+            >
+              {actionLoading === "release"
+                ? "Releasing payment..."
+                : "Approve \u2014 Release payment to seller"}
+            </button>
+          )}
 
           {/* Secondary actions */}
           {(canRefund || canDispute) && (
