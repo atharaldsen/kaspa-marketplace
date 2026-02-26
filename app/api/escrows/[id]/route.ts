@@ -69,8 +69,8 @@ export async function GET(
         });
       } catch (fundErr) {
         const msg = fundErr instanceof Error ? fundErr.message : "";
-        // If UTXO too small, try compounding first then retry
-        if (msg.includes("too small")) {
+        // If UTXO issue (too small or mass too large from fragmented UTXOs), try compounding first then retry
+        if (msg.includes("too small") || msg.includes("storage mass")) {
           try {
             await compoundEscrow(escrow.escrowApiId);
             const retryResult = await fundEscrow(escrow.escrowApiId);
@@ -87,7 +87,7 @@ export async function GET(
               },
             });
           } catch {
-            autoLockError = "Payment received but the amount may not be enough. Please send more KAS to the escrow address.";
+            autoLockError = "Payment received but auto-lock failed. The funds may need to be consolidated — this will retry automatically.";
           }
         } else if (msg.includes("too large")) {
           autoLockError = "The payment is more than 10% over the escrow amount. Please send the correct amount.";

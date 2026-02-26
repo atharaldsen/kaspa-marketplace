@@ -56,7 +56,7 @@ function getStep(status: string): number {
   if (status === "awaiting_funding" || status === "funded" || status === "funding_detected") return 0;
   if (status === "locking") return 1;
   if (status === "locked") return 2;
-  if (["released", "refunded", "disputed", "escaped"].includes(status)) return 3;
+  if (["releasing", "refunding", "disputing", "released", "refunded", "disputed", "escaped"].includes(status)) return 3;
   return 0;
 }
 
@@ -251,13 +251,14 @@ export default function EscrowDetailPage() {
                 Send payment to the escrow address
               </h2>
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                Open your Kaspa wallet and send exactly the amount below to the escrow address. This page will update automatically once the payment is detected.
+                Open your Kaspa wallet and send the amount below to the escrow address. This page will update automatically once the payment is detected.
               </p>
 
-              {/* Amount */}
+              {/* Amount (escrow + small fee buffer) */}
               <div className="mt-5 rounded-lg bg-white p-4 dark:bg-gray-900">
                 <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Amount to send</p>
-                <KasAmount sompi={escrow.escrowAmount} className="mt-1 text-2xl font-bold text-gray-900 dark:text-white" />
+                <KasAmount sompi={String(BigInt(escrow.escrowAmount) + BigInt(100_000))} className="mt-1 text-2xl font-bold text-gray-900 dark:text-white" />
+                <p className="mt-1 text-xs text-gray-400">Includes network fee. Any excess is returned automatically.</p>
               </div>
 
               {/* Address */}
@@ -424,20 +425,20 @@ export default function EscrowDetailPage() {
       )}
 
       {/* ── Transition: Releasing / Refunding / Disputing ── */}
-      {pendingAction && !isSettled && (
+      {(pendingAction || ["releasing", "refunding", "disputing"].includes(escrow.status)) && !isSettled && (
         <div className="rounded-lg border border-kaspa-200 bg-kaspa-50/50 p-6 text-center dark:border-kaspa-800 dark:bg-kaspa-950/30">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-kaspa-500 border-t-transparent" />
           <h2 className="mt-4 text-lg font-bold text-gray-900 dark:text-white">
-            {pendingAction === "release"
+            {pendingAction === "release" || escrow.status === "releasing"
               ? "Releasing payment..."
-              : pendingAction === "refund"
+              : pendingAction === "refund" || escrow.status === "refunding"
                 ? "Processing refund..."
                 : "Processing dispute..."}
           </h2>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            {pendingAction === "release"
+            {pendingAction === "release" || escrow.status === "releasing"
               ? "Sending funds to the seller. This usually takes a few seconds."
-              : pendingAction === "refund"
+              : pendingAction === "refund" || escrow.status === "refunding"
                 ? "Returning funds to the buyer. This usually takes a few seconds."
                 : "Resolving the dispute. This usually takes a few seconds."}
           </p>
@@ -488,6 +489,27 @@ export default function EscrowDetailPage() {
                 ? "Funds have been returned to the buyer."
                 : "This escrow was settled through dispute resolution."}
           </p>
+
+          {/* Link to next active stage */}
+          {escrow.status === "released" &&
+            escrow.stages &&
+            (() => {
+              const nextStage = escrow.stages.find(
+                (s) => s.stageIndex === escrow.stageIndex + 1 && s.status === "awaiting_funding"
+              );
+              if (!nextStage) return null;
+              return (
+                <Link
+                  href={`/escrow/${nextStage.id}`}
+                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-kaspa-500 px-6 py-3 text-base font-semibold text-white shadow-sm hover:bg-kaspa-600"
+                >
+                  Continue to next milestone: {nextStage.stageName || `Stage ${nextStage.stageIndex + 1}`}
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                  </svg>
+                </Link>
+              );
+            })()}
         </div>
       )}
 

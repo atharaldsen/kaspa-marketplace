@@ -48,8 +48,8 @@ export async function POST(
         { status: 400 }
       );
     }
-    if (msg.includes("too small")) {
-      // Try compounding fragmented UTXOs, then retry fund
+    if (msg.includes("too small") || msg.includes("storage mass")) {
+      // Try compounding fragmented UTXOs (too small or mass too large), then retry fund
       try {
         await compoundEscrow(escrow.escrowApiId);
         const retryResult = await fundEscrow(escrow.escrowApiId);

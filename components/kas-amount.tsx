@@ -3,7 +3,14 @@ export function KasAmount({ sompi, className }: { sompi: string; className?: str
   let formatted: string;
   try {
     const kas = Number(BigInt(sompi)) / 100_000_000;
-    formatted = kas % 1 === 0 ? kas.toFixed(0) : kas.toFixed(2);
+    if (kas % 1 === 0) {
+      formatted = kas.toFixed(0);
+    } else {
+      // Show enough decimals to avoid hiding small amounts (e.g. fees)
+      const s = kas.toString();
+      const decimals = s.includes(".") ? s.split(".")[1].replace(/0+$/, "").length : 0;
+      formatted = kas.toFixed(Math.max(2, Math.min(decimals, 5)));
+    }
   } catch {
     formatted = "—";
   }
