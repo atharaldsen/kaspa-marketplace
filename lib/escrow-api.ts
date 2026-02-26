@@ -87,21 +87,21 @@ export async function getEscrowStatus(id: string): Promise<StatusResponse> {
   return apiCall(`/escrow/${id}`);
 }
 
-export async function fundEscrow(id: string, fee = 20000): Promise<TxResponse> {
+export async function fundEscrow(id: string, fee = 100000): Promise<TxResponse> {
   return apiCall(`/escrow/${id}/fund`, {
     method: "POST",
     body: JSON.stringify({ fee }),
   });
 }
 
-export async function releaseEscrow(id: string, fee = 20000): Promise<TxResponse> {
+export async function releaseEscrow(id: string, fee = 100000): Promise<TxResponse> {
   return apiCall(`/escrow/${id}/release`, {
     method: "POST",
     body: JSON.stringify({ fee }),
   });
 }
 
-export async function refundEscrow(id: string, fee = 20000): Promise<TxResponse> {
+export async function refundEscrow(id: string, fee = 100000): Promise<TxResponse> {
   return apiCall(`/escrow/${id}/refund`, {
     method: "POST",
     body: JSON.stringify({ fee }),
